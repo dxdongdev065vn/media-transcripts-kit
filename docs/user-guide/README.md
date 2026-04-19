@@ -119,8 +119,8 @@ App tự nhận biết MLX đã cài → bật option **MLX (local)** trong drop
 
 1. **Nạp video** — kéo-thả file vào app, hoặc bấm **Browse**, hoặc paste link YouTube.
 2. **Bấm Transcribe** — Whisper chạy, summary tự sinh ngay bên cạnh.
-3. **Translate** (tab Translate) — chọn ngôn ngữ đích, bấm Translate.
-4. **Chapters / YT Pack / Viral Clips** — chạy độc lập, song song được.
+3. **Translate** (tab Translate) — chọn ngôn ngữ đích, bấm Translate. Có ô nhập prompt tùy chỉnh để điều chỉnh phong cách (ví dụ: *"giữ nguyên thuật ngữ tiếng Anh"*, *"văn phong học thuật"*).
+4. **Chapters / YT Pack / Viral Clips** — chạy độc lập, song song được. Chapters tối thiểu 3 phút/chương, Viral Clips tối thiểu 15 giây/clip.
 5. **Mở thư mục output** (link xanh ở khu source info) → có sẵn 6–7 file để dùng.
 
 ### Output files trong `{video}_output/`
