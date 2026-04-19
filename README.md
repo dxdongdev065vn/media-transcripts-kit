@@ -27,7 +27,8 @@ Grab the installer for your OS from the **[latest release](https://github.com/ph
 
 ## Docs
 
-📖 **[User Guide (Vietnamese)](user-docs/README.md)** — install, features, screenshots.
+- 📖 **[User Guide (Vietnamese)](user-docs/README.md)** — install, features, screenshots
+- 🛠️ **[Developer Docs](docs/README.md)** — architecture, codebase map, build, release
 
 ## Build from source
 
