@@ -335,6 +335,18 @@ button.ghost.small { padding: 4px 10px; font-size: 11px; }
 
 /* ── Progress bar ─────────────────────────────────── */
 .progress-box { margin: 8px 0; padding: 10px 12px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); }
+/* YouTube download banner — full-width, prominent, accent-colored. */
+.yt-progress {
+  margin: 0 16px 10px;
+  padding: 14px 18px;
+  background: linear-gradient(90deg, rgba(122, 162, 255, 0.12), rgba(122, 162, 255, 0.04));
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 0 2px rgba(122, 162, 255, 0.15);
+}
+.yt-progress .progress-head { font-size: 14px; margin-bottom: 8px; }
+.yt-progress .progress-head span:first-child::before { content: "⬇️ "; }
+.yt-progress .progress-track { height: 10px; border-radius: 5px; }
+.yt-progress .progress-bar { border-radius: 5px; }
 .progress-box[hidden] { display: none; }
 .progress-head { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
 .progress-head span:first-child { color: var(--accent-strong); font-weight: 600; }

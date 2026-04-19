@@ -75,8 +75,10 @@ export function initSourceManager() {
   const aiStatusEl = document.getElementById("ai-engine-status");
 
   // ── YouTube download progress ────────────────────────────────────────
+  // Placed as a full-width banner under the toolbar so it stands out clearly
+  // when active (the toolbar itself is too cramped for a progress bar).
   const progressBox = document.createElement("div");
-  progressBox.className = "progress-box";
+  progressBox.className = "progress-box yt-progress";
   progressBox.hidden = true;
   progressBox.innerHTML = `
     <div class="progress-head">
@@ -85,7 +87,7 @@ export function initSourceManager() {
     </div>
     <div class="progress-track"><div id="yt-progress-bar" class="progress-bar indeterminate"></div></div>
   `;
-  smEl.querySelector(".sm-toolbar").appendChild(progressBox);
+  smEl.querySelector(".sm-toolbar").insertAdjacentElement("afterend", progressBox);
 
   const ytBar   = progressBox.querySelector("#yt-progress-bar");
   const ytLabel = progressBox.querySelector("#yt-progress-label");
@@ -154,7 +156,7 @@ export function initSourceManager() {
   async function commitYouTubeUrl(url) {
     input.disabled = true;
     showProgress("resolving video ID…", null);
-    meta.dataset.error = ""; meta.textContent = "downloading from YouTube…";
+    meta.dataset.error = ""; meta.textContent = "";
     try {
       const localPath = await invoke("yt_dlp_download", { url });
       input.value = localPath;
