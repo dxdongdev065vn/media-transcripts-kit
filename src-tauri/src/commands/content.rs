@@ -92,6 +92,9 @@ pub struct TranslateCommandRequest {
     /// can maintain consistent terminology across batches.
     #[serde(default)]
     pub summary_hint: Option<String>,
+    /// Optional free-form user instruction to adjust style/context (tone, terminology, etc.).
+    #[serde(default)]
+    pub custom_instruction: Option<String>,
 }
 
 /// Tauri event emitted after each batch finishes. Payload: `{ batch, total, percent }`.
@@ -144,6 +147,7 @@ pub async fn content_translate(
             batch,
             target_name,
             request.summary_hint.as_deref(),
+            request.custom_instruction.as_deref(),
             &prev_context,
         )
         .await

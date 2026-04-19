@@ -78,7 +78,11 @@ fn primary_tag(tag: &str) -> &str {
 
 /// `summary_hint` — brief content description injected into the system prompt so
 /// the model can maintain consistent terminology and proper-noun romanization.
-pub fn system_prompt(target_language_name: &str, summary_hint: Option<&str>) -> String {
+pub fn system_prompt(
+    target_language_name: &str,
+    summary_hint: Option<&str>,
+    custom_instruction: Option<&str>,
+) -> String {
     let hint_section = summary_hint
         .filter(|h| !h.trim().is_empty())
         .map(|h| format!(
@@ -86,9 +90,13 @@ pub fn system_prompt(target_language_name: &str, summary_hint: Option<&str>) -> 
              romanization across all batches): {h}"
         ))
         .unwrap_or_default();
+    let custom_section = custom_instruction
+        .filter(|h| !h.trim().is_empty())
+        .map(|h| format!("\nUser style/context instruction (follow this when translating): {h}"))
+        .unwrap_or_default();
     format!(
         "You are a professional subtitle translator. Your ONLY job is to translate \
-         text into {target_language_name}.{hint_section}\n\
+         text into {target_language_name}.{hint_section}{custom_section}\n\
          CRITICAL RULES:\n\
          - Every output string MUST be written entirely in {target_language_name}.\n\
          - Do NOT output Chinese characters, Japanese characters, or any other script.\n\
@@ -249,6 +257,7 @@ impl<'a> TranslateRunner for ProviderTranslateRunner<'a> {
                 batch,
                 target_name,
                 None,
+                None,
                 &prev_context,
             )
             .await?;
@@ -297,6 +306,7 @@ pub async fn translate_batch_with_retry(
     batch: &TranscriptBatch,
     target_name: &str,
     summary_hint: Option<&str>,
+    custom_instruction: Option<&str>,
     prev_context: &[String],
 ) -> Result<Vec<String>, AiProviderError> {
     let want = batch.segments.len();
@@ -331,7 +341,7 @@ pub async fn translate_batch_with_retry(
             max_tokens: 4096,
             ..CompletionRequest::structured(
                 model,
-                system_prompt(target_name, summary_hint),
+                system_prompt(target_name, summary_hint, custom_instruction),
                 user,
                 "TranslatedBatch",
                 response_schema(),
@@ -480,10 +490,12 @@ mod tests {
 
     #[test]
     fn system_prompt_includes_summary_hint() {
-        let p = system_prompt("Vietnamese", Some("A talk about rockets"));
+        let p = system_prompt("Vietnamese", Some("A talk about rockets"), None);
         assert!(p.contains("A talk about rockets"));
-        let p_no_hint = system_prompt("Vietnamese", None);
+        let p_no_hint = system_prompt("Vietnamese", None, None);
         assert!(!p_no_hint.contains("Content context"));
+        let p_custom = system_prompt("Vietnamese", None, Some("formal tone"));
+        assert!(p_custom.contains("formal tone"));
     }
 
     #[test]

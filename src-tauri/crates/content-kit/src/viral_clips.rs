@@ -31,7 +31,10 @@ pub fn system_prompt(language: &str, summary_hint: Option<&str>) -> String {
     format!(
         "You are a social media content strategist. Analyze the transcript \
          and find 3-5 segments that would make the best short-form clips \
-         (15-60 seconds each) for YouTube Shorts, TikTok, or Reels.\n\n\
+         for YouTube Shorts, TikTok, or Reels. Each clip MUST be AT LEAST \
+         15 seconds long (endMs - startMs >= 15000) and at most 60 seconds. \
+         Extend the selection to include enough context if needed to reach \
+         the 15-second minimum.\n\n\
          For each clip provide:\n\
          - Precise start and end timestamps (in milliseconds)\n\
          - A hook explaining why this moment is engaging (emotional peak, \
@@ -133,14 +136,23 @@ impl<'a> ViralClipRunner for ProviderViralClipRunner<'a> {
         let parsed: ClipResponse =
             serde_json::from_value(value).map_err(|e| AiProviderError::Malformed(e.to_string()))?;
 
+        // Enforce 15s minimum — extend end_ms if the model returned a shorter clip.
+        const MIN_CLIP_MS: i64 = 15_000;
+        let transcript_end = segments.last().map(|s| s.end_ms).unwrap_or(i64::MAX);
         let mut clips: Vec<ViralClip> = parsed
             .clips
             .into_iter()
-            .map(|e| ViralClip {
-                start_ms: e.start_ms,
-                end_ms: e.end_ms,
-                hook: e.hook,
-                caption: e.caption,
+            .map(|e| {
+                let mut end_ms = e.end_ms;
+                if end_ms - e.start_ms < MIN_CLIP_MS {
+                    end_ms = (e.start_ms + MIN_CLIP_MS).min(transcript_end);
+                }
+                ViralClip {
+                    start_ms: e.start_ms,
+                    end_ms,
+                    hook: e.hook,
+                    caption: e.caption,
+                }
             })
             .collect();
 

@@ -31,8 +31,10 @@ pub fn system_prompt(language: &str, summary_hint: Option<&str>) -> String {
     format!(
         "You create YouTube chapter lists. Respond in {language}. First \
          chapter must start at 00:00. Keep titles short (under 8 words), \
-         meaningful, and descriptive of the upcoming section. Aim for 5-10 \
-         chapters for a 10-minute video; scale with length.{hint}"
+         meaningful, and descriptive of the upcoming section. \
+         MINIMUM chapter length: 3 minutes (180000 ms) — do NOT create \
+         chapters shorter than this. Merge short sections into broader \
+         topics instead of splitting aggressively.{hint}"
     )
 }
 
@@ -134,6 +136,18 @@ impl<'a> ChapterRunner for ProviderChapterRunner<'a> {
             first.timestamp_ms = 0;
         }
 
+        // Enforce minimum 3-minute gap between chapters. Drop any chapter
+        // that starts less than 180_000 ms after the previously kept one.
+        const MIN_GAP_MS: i64 = 180_000;
+        let mut filtered: Vec<Chapter> = Vec::with_capacity(chapters.len());
+        for c in chapters {
+            match filtered.last() {
+                Some(prev) if c.timestamp_ms - prev.timestamp_ms < MIN_GAP_MS => {}
+                _ => filtered.push(c),
+            }
+        }
+        chapters = filtered;
+
         Ok(ChapterList {
             language: language.into(),
             chapters,
@@ -181,16 +195,16 @@ mod tests {
             response: json!({
                 "chapters": [
                     { "timestampMs": 3_000, "title": "Intro" },
-                    { "timestampMs": 60_000, "title": "Main" }
+                    { "timestampMs": 240_000, "title": "Main" }
                 ]
             }),
         };
         let runner = ProviderChapterRunner { provider: &stub };
-        let segments = vec![TranscriptionSegment::new(0, 120_000, "full talk")];
-        let list = runner.run(&segments, "English", "claude-3").await.unwrap();
+        let segments = vec![TranscriptionSegment::new(0, 600_000, "full talk")];
+        let list = runner.run(&segments, "English", "claude-3", None).await.unwrap();
         assert_eq!(list.chapters.len(), 2);
         assert_eq!(list.chapters[0].timestamp_ms, 0);
-        assert_eq!(list.chapters[1].timestamp_ms, 60_000);
+        assert_eq!(list.chapters[1].timestamp_ms, 240_000);
     }
 
     #[tokio::test]
@@ -201,12 +215,12 @@ mod tests {
                 "chapters": [
                     { "timestampMs": 0, "title": "a" },
                     { "timestampMs": 0, "title": "a dup" },
-                    { "timestampMs": 5_000, "title": "b" }
+                    { "timestampMs": 200_000, "title": "b" }
                 ]
             }),
         };
         let runner = ProviderChapterRunner { provider: &stub };
-        let list = runner.run(&[], "English", "claude-3").await.unwrap();
+        let list = runner.run(&[], "English", "claude-3", None).await.unwrap();
         assert_eq!(list.chapters.len(), 2);
     }
 }

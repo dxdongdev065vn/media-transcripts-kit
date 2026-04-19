@@ -24,6 +24,8 @@ export function initTranslateView() {
   const btn = document.getElementById("btn-translate");
 
   // ── Progress bar (created inline, same pattern as YT download) ──────
+  const promptBox = document.getElementById("translate-custom-prompt");
+
   const progressBox = document.createElement("div");
   progressBox.className = "progress-box";
   progressBox.hidden = true;
@@ -83,6 +85,7 @@ export function initTranslateView() {
 
     try {
       const summary = getSummary();
+      const customInstruction = promptBox?.value.trim() || null;
       const out = await invoke("content_translate", {
         request: {
           provider,
@@ -91,6 +94,7 @@ export function initTranslateView() {
           sourceLanguage: source.transcript.language ?? null,
           targetLanguage: target,
           summaryHint: summary?.text ?? null,
+          customInstruction,
         },
       });
       lastResult = out;
