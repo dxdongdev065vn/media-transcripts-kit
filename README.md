@@ -5,95 +5,51 @@
 <h1 align="center">My Media Kit</h1>
 
 <p align="center">
-  All-in-one video toolkit for content creators.<br/>
-  Transcribe, translate, summarize, generate chapters, find viral clips — locally or via cloud APIs.
+  Turn any video or podcast into readable, translatable, searchable text.<br/>
+  Transcribe, translate, summarize, chapters, viral clips — locally (Apple Silicon) or via cloud APIs.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue" />
-  <img src="https://img.shields.io/badge/license-MIT-green" />
-  <img src="https://img.shields.io/badge/version-0.1.0-orange" />
+  <a href="https://github.com/phuc-nt/my-media-kit/stargazers"><img src="https://img.shields.io/github/stars/phuc-nt/my-media-kit?style=social" alt="GitHub stars" /></a>
+  <a href="https://github.com/phuc-nt/my-media-kit/releases/latest"><img src="https://img.shields.io/github/v/release/phuc-nt/my-media-kit" alt="Latest release" /></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue" alt="platform" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="license" />
 </p>
 
 ---
 
-## What it does
+## Download
 
-Drop a video file (or paste a YouTube URL) and get:
+Grab the installer for your OS from the **[latest release](https://github.com/phuc-nt/my-media-kit/releases/latest)**:
 
-| Feature | Description |
-|---------|-------------|
-| **YouTube Downloader** | Paste any YouTube URL — app fetches the video to `~/Downloads/MyMediaKit/{title} [{id}].mp4` and feeds it straight into the pipeline. `yt-dlp` ships inside the app, no install needed. |
-| **Transcribe** | Speech-to-text with word-level timestamps (MLX Whisper local or OpenAI cloud) |
-| **Translate** | Translate transcript to any language, auto-skips if source matches target |
-| **Summary** | Brief narrative, key points, or action items |
-| **Chapters** | YouTube-ready chapter markers (first pinned to 0:00) |
-| **YouTube Pack** | 5 title suggestions + full description + SEO tags in one shot |
-| **Viral Clips** | Best 15-60s moments for Shorts/Reels/TikTok with hooks and captions |
-| **Clean Transcript** | Rule-based filler word removal (no AI needed) |
+- **macOS (Apple Silicon):** `.dmg`
+- **Windows:** `.msi` or `.exe`
 
-## How it works
+## Docs
 
-```
-Video / YouTube URL
-        |
-    Transcribe (MLX local or OpenAI cloud)
-        |
-    ┌───┴────────────────────────────┐
-    |   All features share the       |
-    |   cached transcript — set      |
-    |   provider + model once in     |
-    |   the sidebar, click any tab   |
-    └────────────────────────────────┘
-```
+- 📖 **[User Guide (Vietnamese)](https://phuc-nt.github.io/my-media-kit/user-guide/)** — install, features, screenshots
+- 🏛️ **[Architecture Decisions](docs/architecture-decisions.md)**
+- 🗺️ **[Roadmap / Backlog](docs/backlog.md)**
 
-One source. One config. Every feature is one click away.
-
-## Quick start
-
-### Prerequisites
-
-- [Rust](https://rustup.rs/) 1.80+
-- [Node.js](https://nodejs.org/) 20+ with npm
-- `ffmpeg` + `ffprobe` on PATH
-
-**Apple Silicon (local AI):**
-```bash
-pip install mlx-lm mlx-whisper
-```
-
-**Any platform (cloud AI):**
-Set an API key in Settings (OpenAI recommended — covers both transcription and all AI features).
-
-### Run
+## Build from source
 
 ```bash
 npm install
 npm run dev
 ```
 
-See [Getting Started](user-docs/getting-started.md) for detailed setup.
+Requires Rust 1.80+, Node 20+, `ffmpeg`/`ffprobe`. On Apple Silicon for local MLX: `pip install mlx-lm mlx-whisper`.
 
-## AI Providers
+## Star history
 
-| Provider | Transcription | AI Features | Setup |
-|----------|:---:|:---:|-------|
-| MLX (local) | Yes | Yes | Apple Silicon + pip install |
-| OpenAI | Yes (Whisper) | Yes (GPT-4o) | API key |
-| Claude | - | Yes | API key |
-| Gemini | - | Yes | API key |
-| Ollama | - | Yes | Local install |
-| OpenRouter | - | Yes | API key |
-
-## Documentation
-
-- [Getting Started](user-docs/getting-started.md) — install, configure, first run
-- [Features Guide](user-docs/features.md) — what each feature does and how to use it
-
-## Tech stack
-
-Built with [Tauri v2](https://tauri.app/) (Rust backend + HTML/JS frontend). Seven independent Rust crates keep the architecture modular and testable.
+<a href="https://www.star-history.com/#phuc-nt/my-media-kit&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=phuc-nt/my-media-kit&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=phuc-nt/my-media-kit&type=Date" />
+    <img alt="Star history chart" src="https://api.star-history.com/svg?repos=phuc-nt/my-media-kit&type=Date" />
+  </picture>
+</a>
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — built with [Tauri v2](https://tauri.app/).
