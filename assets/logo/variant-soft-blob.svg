@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Variant 2: Soft Blob
+    Same colors + layout. Organic rounded shapes, soft shadows,
+    pillow-like volumes instead of hard polygons.
+  -->
+
+  <defs>
+    <!-- Drop shadow -->
+    <filter id="shadow" x="-10%" y="-5%" width="130%" height="130%">
+      <feDropShadow dx="4" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+
+    <!-- Soft inner shadow for depth -->
+    <filter id="inner-glow" x="-5%" y="-5%" width="110%" height="110%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+
+    <!-- Document body gradient (pillow) -->
+    <linearGradient id="doc-body" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#F1F5F9"/>
+      <stop offset="50%" stop-color="#CBD5E1"/>
+      <stop offset="100%" stop-color="#94A3B8"/>
+    </linearGradient>
+
+    <!-- Play button gradient (sphere) -->
+    <radialGradient id="play-sphere" cx="0.35" cy="0.3" r="0.65">
+      <stop offset="0%" stop-color="#FF8A5C"/>
+      <stop offset="45%" stop-color="#E84E1B"/>
+      <stop offset="100%" stop-color="#921B0D"/>
+    </radialGradient>
+  </defs>
+
+  <!-- ===== BADGE ===== -->
+  <rect x="16" y="16" width="480" height="480" rx="88" fill="#0F172A"/>
+
+  <!-- ===== DOCUMENT (soft rounded) ===== -->
+  <g filter="url(#shadow)">
+    <!-- Document body — rounded rect instead of sharp polygon -->
+    <rect x="120" y="130" width="190" height="260" rx="18" fill="url(#doc-body)"/>
+
+    <!-- Right side face (rounded) -->
+    <path d="M310,148 L345,120 C350,116 354,120 354,126 L354,362 C354,368 350,372 345,370 L310,390 L310,148Z"
+          fill="#475569"/>
+
+    <!-- Top face (rounded) -->
+    <path d="M138,130 C134,130 134,126 138,124 L240,108 C242,108 298,108 300,108 L345,120 L310,148 L138,148 L138,130Z"
+          fill="#F8FAFC"/>
+
+    <!-- Fold corner — rounded triangle -->
+    <path d="M120,260 C118,262 118,258 120,255 L120,255 Q125,195 185,133 C188,130 192,130 192,133 L192,252 C192,258 188,262 182,262 Z"
+          fill="#94A3B8"/>
+
+    <!-- Fold crease (soft) -->
+    <path d="M120,258 Q155,195 190,133"
+          stroke="#64748B" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- ===== PLAY BUTTON (sphere) ===== -->
+  <g filter="url(#shadow)">
+    <!-- Shadow disc behind -->
+    <circle cx="390" cy="350" r="98" fill="#5C1510" opacity="0.5"/>
+
+    <!-- Main sphere -->
+    <circle cx="358" cy="372" r="100" fill="url(#play-sphere)"/>
+
+    <!-- Specular highlight -->
+    <ellipse cx="330" cy="340" rx="40" ry="28"
+             fill="#FFFFFF" opacity="0.2"
+             transform="rotate(-25 330 340)"/>
+
+    <!-- Play triangle (slightly rounded) -->
+    <path d="M332,328 C328,325 328,420 332,417 L402,376 C408,372 408,372 402,368 Z"
+          fill="#FFFFFF"/>
+  </g>
+</svg>

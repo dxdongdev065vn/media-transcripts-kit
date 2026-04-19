@@ -82,3 +82,6 @@ __pycache__/
 src-tauri/binaries/ffmpeg-*
 src-tauri/binaries/ffprobe-*
 src-tauri/binaries/yt-dlp-*
+
+# ── Internal dev docs (not published) ───────────────────────────────────────
+docs/

@@ -27,9 +27,7 @@ Grab the installer for your OS from the **[latest release](https://github.com/ph
 
 ## Docs
 
-- 📖 **[User Guide (Vietnamese)](https://phuc-nt.github.io/my-media-kit/user-guide/)** — install, features, screenshots
-- 🏛️ **[Architecture Decisions](docs/architecture-decisions.md)**
-- 🗺️ **[Roadmap / Backlog](docs/backlog.md)**
+📖 **[User Guide (Vietnamese)](user-docs/README.md)** — install, features, screenshots.
 
 ## Build from source
 

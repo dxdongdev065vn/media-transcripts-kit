@@ -188,7 +188,20 @@ pub async fn yt_dlp_download(url: String, app: AppHandle) -> Result<String, Stri
         .await
         .map_err(|e| format!("yt-dlp wait error: {e}"))?;
 
+    // yt-dlp sometimes exits non-zero AFTER successfully producing the file
+    // (e.g. a post-download rename fails because the file already landed at
+    // its final path without a `.part` stage — seen with the JS-runtime
+    // deprecation warning on recent youtube.com changes). Fall back to
+    // checking disk: if the expected output is there, treat as success.
+    let dest_candidate = written_path.clone().or_else(|| find_cached(&dir, &id));
+
     if !status.success() {
+        if let Some(ref p) = dest_candidate {
+            if p.exists() {
+                emit(100.0, false, "download complete");
+                return Ok(p.to_string_lossy().into_owned());
+            }
+        }
         let detail = stderr_buf.trim();
         if detail.is_empty() {
             return Err(format!("yt-dlp exited with status {status}"));
@@ -196,8 +209,7 @@ pub async fn yt_dlp_download(url: String, app: AppHandle) -> Result<String, Stri
         return Err(format!("yt-dlp failed ({status}): {detail}"));
     }
 
-    let dest = written_path
-        .or_else(|| find_cached(&dir, &id))
+    let dest = dest_candidate
         .ok_or_else(|| "yt-dlp succeeded but output path not captured".to_string())?;
 
     if !dest.exists() {

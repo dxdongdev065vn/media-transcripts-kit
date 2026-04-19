@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Variant 3: Neon Outline
+    Same shapes + layout. Outlined strokes with neon glow effect,
+    dark interior, luminous edges — cyberpunk/tech aesthetic.
+  -->
+
+  <defs>
+    <!-- Neon glow for document -->
+    <filter id="neon-slate" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur stdDeviation="4" result="blur1"/>
+      <feGaussianBlur stdDeviation="10" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Neon glow for play button -->
+    <filter id="neon-red" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur1"/>
+      <feGaussianBlur stdDeviation="14" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Badge border glow -->
+    <filter id="neon-border" x="-5%" y="-5%" width="110%" height="110%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <!-- ===== BADGE ===== -->
+  <rect x="16" y="16" width="480" height="480" rx="88" fill="#060B14"/>
+  <!-- Glowing border -->
+  <rect x="16" y="16" width="480" height="480" rx="88"
+        fill="none" stroke="#334155" stroke-width="2" filter="url(#neon-border)"/>
+  <rect x="16" y="16" width="480" height="480" rx="88"
+        fill="none" stroke="#475569" stroke-width="1" opacity="0.6"/>
+
+  <!-- ===== DOCUMENT (neon outlines) ===== -->
+  <g filter="url(#neon-slate)">
+    <!-- Right side -->
+    <polygon points="300,140 340,110 340,370 300,380"
+             fill="#0F172A" stroke="#94A3B8" stroke-width="2"/>
+
+    <!-- Top face -->
+    <polygon points="200,140 300,140 340,110 240,110"
+             fill="#1E293B" stroke="#CBD5E1" stroke-width="2"/>
+
+    <!-- Top over fold -->
+    <polygon points="130,260 200,140 240,110 170,230"
+             fill="#0F172A" stroke="#94A3B8" stroke-width="1.5"/>
+
+    <!-- Front face -->
+    <polygon points="130,260 200,140 300,140 300,380 130,380"
+             fill="#0F172A" stroke="#E2E8F0" stroke-width="2.5"/>
+
+    <!-- Fold side -->
+    <polygon points="130,260 170,230 240,110 200,140"
+             fill="#0F172A" stroke="#64748B" stroke-width="1.5"/>
+
+    <!-- Fold flap -->
+    <polygon points="130,260 200,260 200,140"
+             fill="#1E293B" stroke="#94A3B8" stroke-width="2"/>
+
+    <!-- Fold crease -->
+    <line x1="130" y1="260" x2="200" y2="140"
+          stroke="#CBD5E1" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- "Content lines" inside document (neon) -->
+    <line x1="155" y1="290" x2="275" y2="290" stroke="#475569" stroke-width="1.5" opacity="0.5"/>
+    <line x1="155" y1="310" x2="260" y2="310" stroke="#475569" stroke-width="1.5" opacity="0.4"/>
+    <line x1="155" y1="330" x2="240" y2="330" stroke="#475569" stroke-width="1.5" opacity="0.3"/>
+  </g>
+
+  <!-- ===== PLAY BUTTON (neon circle) ===== -->
+  <g filter="url(#neon-red)">
+    <!-- Back disc outline -->
+    <circle cx="395" cy="345" r="100"
+            fill="#0A0505" stroke="#921B0D" stroke-width="2.5"/>
+
+    <!-- Front disc outline -->
+    <circle cx="358" cy="372" r="100"
+            fill="#120808" stroke="#E84E1B" stroke-width="3"/>
+
+    <!-- Inner glow ring -->
+    <circle cx="358" cy="372" r="85"
+            fill="none" stroke="#FF6B3B" stroke-width="1" opacity="0.3"/>
+
+    <!-- Play triangle -->
+    <polygon points="330,330 330,415 405,372"
+             fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linejoin="round"/>
+    <!-- Subtle fill inside triangle -->
+    <polygon points="333,334 333,411 400,372"
+             fill="#E84E1B" fill-opacity="0.15"/>
+  </g>
+</svg>
