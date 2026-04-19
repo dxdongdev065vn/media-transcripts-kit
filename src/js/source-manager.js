@@ -16,7 +16,12 @@ const YT_URL_RE = /^https?:\/\/(www\.)?(youtube\.com\/watch|youtu\.be\/)/;
 const MEDIA_EXTENSIONS = [
   "mp4","mov","mkv","avi","webm","flv","m4v","ts",
   "mp3","wav","m4a","aac","ogg","flac","wma",
+  "srt",
 ];
+
+function isSrtPath(p) {
+  return (p.split(".").pop() || "").toLowerCase() === "srt";
+}
 
 // Status badge definitions: key → label shown in UI.
 const BADGE_KEYS = [
@@ -117,6 +122,20 @@ export function initSourceManager() {
     setSourcePath(path);
     if (!path) return;
     try {
+      if (isSrtPath(path)) {
+        const out = await invoke("import_srt", { path });
+        const lastMs = out.segments.length
+          ? out.segments[out.segments.length - 1].end_ms
+          : 0;
+        setProbe({ durationMs: lastMs, width: 0, height: 0, frameRate: 0, audioChannels: 0 });
+        setTranscript(out);
+        meta.dataset.error = "";
+        const outDir = await invoke("ensure_output_dir", { sourcePath: path });
+        setOutputDir(outDir);
+        const status = await invoke("scan_output_status", { sourcePath: path });
+        setOutputStatus({ ...status, transcript: true });
+        return;
+      }
       const p = await invoke("media_probe", { path });
       setProbe({
         durationMs: p.duration_ms, width: p.width, height: p.height,
@@ -202,7 +221,7 @@ export function initSourceManager() {
   browseBtn.addEventListener("click", async () => {
     try {
       const selected = await window.__TAURI__.dialog.open({
-        multiple: false, title: "Select a video or audio file",
+        multiple: false, title: "Select a video, audio, or SRT file",
         filters: [
           { name: "Media files", extensions: MEDIA_EXTENSIONS },
           { name: "All files", extensions: ["*"] },
@@ -344,7 +363,7 @@ export function initSourceManager() {
     // No source loaded — show placeholder.
     if (!state.path) {
       meta.textContent = ""; meta.dataset.error = "";
-      previewEl.innerHTML = `<div class="sm-no-source"><span class="sm-icon">🎬</span><p>Drop a video file here or click Browse</p></div>`;
+      previewEl.innerHTML = `<div class="sm-no-source"><span class="sm-icon">🎬</span><p>Drop a video, audio, or .srt file here — or click Browse</p></div>`;
       renderBadges({});
       outputDirEl.innerHTML = "";
       return;

@@ -71,6 +71,7 @@ pub fn run() {
             commands::ai_ping,
             commands::mlx_whisper_transcribe,
             commands::openai_whisper_transcribe,
+            commands::import_srt,
             commands::content_summary,
             commands::content_chapters,
             commands::content_translate,

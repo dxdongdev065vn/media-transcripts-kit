@@ -150,7 +150,7 @@ pub async fn load_transcript_from_output(
 }
 
 /// Minimal SRT parser → Vec<TranscriptionSegment>.
-fn parse_srt(content: &str) -> Vec<TranscriptionSegment> {
+pub(crate) fn parse_srt(content: &str) -> Vec<TranscriptionSegment> {
     let mut segments = Vec::new();
     let blocks: Vec<&str> = content.split("\n\n").collect();
     for block in blocks {

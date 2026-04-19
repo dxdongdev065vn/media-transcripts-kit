@@ -18,6 +18,7 @@ pub mod media;
 pub mod meta;
 pub mod mlx_server;
 pub mod output;
+pub mod srt_import;
 pub mod transcription;
 pub mod youtube;
 
@@ -28,5 +29,6 @@ pub use media::*;
 pub use meta::*;
 pub use mlx_server::*;
 pub use output::*;
+pub use srt_import::*;
 pub use transcription::*;
 pub use youtube::*;
