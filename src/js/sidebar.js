@@ -6,7 +6,11 @@ export function initSidebar() {
   const views = document.querySelectorAll(".feature-view");
 
   items.forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      if (btn.classList.contains("unsupported")) {
+        e.preventDefault();
+        return;
+      }
       const target = btn.dataset.feature;
       items.forEach((b) => b.classList.toggle("active", b === btn));
       views.forEach((v) =>

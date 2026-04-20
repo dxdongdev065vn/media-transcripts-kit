@@ -222,6 +222,12 @@ body {
   width: 5px; height: 5px; border-radius: 50%;
   background: var(--text-dim); margin-left: auto; opacity: 0.4;
 }
+.feature-item.unsupported {
+  opacity: 0.35; cursor: not-allowed;
+  text-decoration: line-through;
+}
+.feature-item.unsupported:hover { background: transparent; }
+.feature-item.unsupported::after { display: none; }
 
 /* ── Feature views ────────────────────────────────── */
 #detail {

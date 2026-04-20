@@ -23,6 +23,27 @@ function isSrtPath(p) {
   return (p.split(".").pop() || "").toLowerCase() === "srt";
 }
 
+// Returns "srt" | "audio" | "video" | null
+function sourceKindOf(state) {
+  if (!state.path) return null;
+  if (isSrtPath(state.path)) return "srt";
+  const p = state.probe;
+  if (!p) return null;
+  return p.width > 0 ? "video" : "audio";
+}
+
+// Features unavailable per source kind.
+// - srt: transcript already present; no media for clip extraction
+// - audio: no video frames to cut into vertical clips
+const UNSUPPORTED_BY_KIND = {
+  srt: new Set(["transcribe", "viral-clips"]),
+  audio: new Set(["viral-clips"]),
+  video: new Set(),
+};
+
+const KIND_ICON = { video: "🎬", audio: "🎵", srt: "📄" };
+const KIND_LABEL = { video: "Video", audio: "Audio", srt: "Subtitle" };
+
 // Status badge definitions: key → label shown in UI.
 const BADGE_KEYS = [
   ["transcript", "Transcript"],
@@ -346,11 +367,21 @@ export function initSourceManager() {
 
   subscribe((state) => {
     const hasTranscript = !!(state.transcript?.segments?.length);
+    const kind = sourceKindOf(state);
+    const unsupported = kind ? UNSUPPORTED_BY_KIND[kind] : null;
     featureTabs.forEach((tab) => {
       const feat = tab.dataset.feature;
+      const blocked = !!(unsupported && unsupported.has(feat));
+      tab.classList.toggle("unsupported", blocked);
       if (transcriptFeatures.has(feat)) {
-        tab.classList.toggle("locked", !hasTranscript && !!state.path);
-        tab.classList.toggle("ready", hasTranscript);
+        tab.classList.toggle("locked", !blocked && !hasTranscript && !!state.path);
+        tab.classList.toggle("ready", !blocked && hasTranscript);
+      }
+      // If active tab is now blocked, fall back to Transcribe (or Settings for SRT).
+      if (blocked && tab.classList.contains("active")) {
+        const fallback = kind === "srt" ? "translate" : "transcribe";
+        const target = document.querySelector(`.feature-item[data-feature="${fallback}"]`);
+        target?.click();
       }
     });
   });
@@ -379,9 +410,13 @@ export function initSourceManager() {
     const name = basename(state.path);
     const ext = name.split(".").pop()?.toUpperCase() ?? "";
     const p = state.probe;
+    const kind = sourceKindOf(state);
+    const kindIcon = KIND_ICON[kind] || "🎬";
+    const kindLabel = KIND_LABEL[kind] || "";
     let propsHtml = "";
     if (p) {
       const pairs = [
+        ["Type", `${kindIcon} ${kindLabel}`],
         ["Duration", fmtDuration(p.durationMs)],
         ["Format", ext],
       ];
