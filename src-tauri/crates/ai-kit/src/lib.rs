@@ -17,11 +17,15 @@
 //! request with their own prompt + schema and parse the returned JSON into
 //! their own types.
 
+pub mod config;
+pub mod gateway;
 pub mod providers;
 pub mod registry;
 pub mod request;
 pub mod secret_store;
 
+pub use config::{ProviderCapability, ProviderConfig, ProviderSettings};
+pub use gateway::{invoke_with_fallback, AIRequestContext, GatewayAttempt, GatewayCompletion};
 pub use providers::{ClaudeProvider, GeminiProvider, OllamaProvider, OpenAiProvider, OpenRouterProvider};
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 pub use providers::MlxLmProvider;
@@ -41,10 +45,22 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub trait Provider: Send + Sync {
     fn provider_type(&self) -> AiProviderType;
 
+    fn supports(&self, capability: ProviderCapability) -> bool {
+        matches!(capability, ProviderCapability::Text | ProviderCapability::Vision)
+    }
+
     /// Cheap availability check. Called on app startup + when user changes
     /// settings. Should not make paid API calls; prefer a health ping or
     /// an env/keyring check.
     async fn is_available(&self) -> bool;
+
+    async fn health_check(&self) -> Result<(), AiProviderError> {
+        if self.is_available().await {
+            Ok(())
+        } else {
+            Err(AiProviderError::Rejected("provider is not configured".into()))
+        }
+    }
 
     /// Issue a structured-output completion request. Returns the parsed
     /// JSON value the provider produced; caller is responsible for decoding

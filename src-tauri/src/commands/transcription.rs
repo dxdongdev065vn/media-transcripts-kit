@@ -1,23 +1,20 @@
 //! Transcription + cache commands.
 //!
-//! Apple Silicon uses the `mlx_whisper` sidecar; other platforms return
-//! a `not implemented` error until the cross-platform backend lands.
-//!
-//! Results are stashed in `AppState.transcripts` keyed by source path so
-//! downstream content-kit features (summary / chapters / filler /
-//! translate) read from cache instead of re-invoking whisper.
+//! Apple Silicon uses the `mlx_whisper` sidecar; cloud mode uses the first
+//! configured OpenAI-compatible transcription provider from provider settings.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::Serialize;
-use tauri::{command, AppHandle, Emitter, State};
+use tauri::{command, AppHandle, State};
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+use tauri::Emitter;
 
 use creator_core::TranscriptionSegment;
 
-use crate::state::{AppState, TranscriptEntry};
+use crate::state::{AppState, TranscriptCacheKey, TranscriptEntry};
 
-/// RAII guard — deletes the temp audio file when dropped.
 struct TempAudio(PathBuf);
 impl Drop for TempAudio {
     fn drop(&mut self) {
@@ -25,8 +22,6 @@ impl Drop for TempAudio {
     }
 }
 
-/// Extract a mono 16 kHz 32 kbps MP3 from any media file into `std::env::temp_dir()`.
-/// Returns the path + an RAII guard that deletes it on drop.
 async fn prepare_audio(source: &Path) -> Result<(PathBuf, TempAudio), String> {
     use uuid::Uuid;
     let stem = source.file_stem().and_then(|s| s.to_str()).unwrap_or("audio");
@@ -38,9 +33,10 @@ async fn prepare_audio(source: &Path) -> Result<(PathBuf, TempAudio), String> {
     Ok((tmp, guard))
 }
 
-/// Event name used for streaming mlx_whisper progress to the frontend.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 pub const PROGRESS_EVENT: &str = "mlx_whisper_progress";
 
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 #[derive(Debug, Clone, Serialize)]
 pub struct ProgressPayload {
     pub current_ms: i64,
@@ -65,6 +61,36 @@ impl TranscribeOutput {
     }
 }
 
+fn transcript_cache_key(
+    path: &Path,
+    backend: &str,
+    provider_id: Option<&str>,
+    model: &str,
+) -> TranscriptCacheKey {
+    TranscriptCacheKey::new(
+        path.to_path_buf(),
+        backend.to_string(),
+        provider_id.map(|value| value.to_string()),
+        model.to_string(),
+    )
+}
+
+fn should_try_next_transcription_provider(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("does not expose an openai-compatible audio transcription endpoint")
+        || lower.contains("temporarily unavailable")
+        || lower.contains("invalid api key")
+        || lower.contains("permission denied")
+        || lower.contains("429")
+        || lower.contains("500")
+        || lower.contains("502")
+        || lower.contains("503")
+        || lower.contains("504")
+        || lower.contains("timeout")
+        || lower.contains("timed out")
+        || lower.contains("rate limit")
+}
+
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 #[command]
 pub async fn mlx_whisper_transcribe(
@@ -80,19 +106,18 @@ pub async fn mlx_whisper_transcribe(
 
     let source = PathBuf::from(&path);
     let refresh = force.unwrap_or(false);
+    let model_id = model
+        .clone()
+        .unwrap_or_else(|| "mlx-community/whisper-large-v3-turbo".into());
+    let cache_key = transcript_cache_key(&source, "mlx", Some("mlx"), &model_id);
 
     if !refresh {
-        if let Some(hit) = state.transcript_get(&source) {
+        if let Some(hit) = state.transcript_get(&cache_key) {
             return Ok(TranscribeOutput::from_entry(hit, true));
         }
     }
 
-    // Extract audio-only MP3 before passing to whisper — video track is never
-    // needed for transcription and stripping it cuts file size significantly.
     let (audio_path, _audio_guard) = prepare_audio(&source).await?;
-
-    // Probe duration of the original source for the progress bar.
-    // Failure is non-fatal — frontend shows an indeterminate bar.
     let total_ms = media_kit::probe_media(&source)
         .await
         .map(|p| p.duration_ms)
@@ -105,10 +130,13 @@ pub async fn mlx_whisper_transcribe(
     let mut options = TranscriptionOptions::default();
     options.language = language;
 
-    // Emit an initial 0% event so the UI swaps to progress mode immediately.
     let _ = app.emit(
         PROGRESS_EVENT,
-        ProgressPayload { current_ms: 0, total_ms, percent: 0.0 },
+        ProgressPayload {
+            current_ms: 0,
+            total_ms,
+            percent: 0.0,
+        },
     );
 
     let app_for_cb = app.clone();
@@ -120,7 +148,11 @@ pub async fn mlx_whisper_transcribe(
         };
         let _ = app_for_cb.emit(
             PROGRESS_EVENT,
-            ProgressPayload { current_ms: end_ms, total_ms, percent },
+            ProgressPayload {
+                current_ms: end_ms,
+                total_ms,
+                percent,
+            },
         );
     });
 
@@ -128,15 +160,24 @@ pub async fn mlx_whisper_transcribe(
         .transcribe_file_with_progress(&audio_path, &options, on_progress)
         .await?;
 
-    // Final 100% tick so the frontend hides the bar cleanly.
     let _ = app.emit(
         PROGRESS_EVENT,
-        ProgressPayload { current_ms: total_ms, total_ms, percent: 100.0 },
+        ProgressPayload {
+            current_ms: total_ms,
+            total_ms,
+            percent: 100.0,
+        },
     );
 
     let language = segments.iter().find_map(|s| s.language.clone());
-    let entry = TranscriptEntry { language, segments };
-    let arc = state.transcript_put(source, entry);
+    let entry = TranscriptEntry {
+        backend: "mlx".into(),
+        provider_id: Some("mlx".into()),
+        model: model_id,
+        language,
+        segments,
+    };
+    let arc = state.transcript_put(cache_key, entry);
     Ok(TranscribeOutput::from_entry(arc, false))
 }
 
@@ -153,72 +194,114 @@ pub async fn mlx_whisper_transcribe(
     Err("mlx_whisper backend is only available on Apple Silicon (macOS aarch64)".into())
 }
 
-/// Transcribe using OpenAI Whisper API (`whisper-1`). Works on all platforms.
-/// Requires an OpenAI API key stored in the keyring.
-/// The audio is first extracted to a 32 kbps mono MP3 to stay under the
-/// 25 MB API limit (≈14 MB / hour of audio).
 #[command]
 pub async fn openai_whisper_transcribe(
+    app: AppHandle,
     path: String,
+    provider_id: Option<String>,
     language: Option<String>,
     model: Option<String>,
     force: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<TranscribeOutput, String> {
-    use ai_kit::{KeyringSecretStore, SecretStore};
-    use creator_core::AiProviderType;
     use transcription_kit::OpenAiWhisperTranscriber;
 
     let source = PathBuf::from(&path);
     let refresh = force.unwrap_or(false);
+    let (audio_path, _audio_guard) = prepare_audio(&source).await?;
+    let targets = crate::commands::ai::resolve_transcription_targets(&app, provider_id.as_deref()).await?;
+    let mut failures = Vec::new();
 
-    if !refresh {
-        if let Some(hit) = state.transcript_get(&source) {
-            return Ok(TranscribeOutput::from_entry(hit, true));
+    for target in targets {
+        let model_id = model
+            .clone()
+            .unwrap_or_else(|| target.config.default_model.clone());
+        let cache_key = transcript_cache_key(
+            &source,
+            "openai-compatible-audio",
+            Some(target.config.id.as_str()),
+            &model_id,
+        );
+        if !refresh {
+            if let Some(hit) = state.transcript_get(&cache_key) {
+                return Ok(TranscribeOutput::from_entry(hit, true));
+            }
+        }
+
+        let mut transcriber = OpenAiWhisperTranscriber::new(target.api_key.clone());
+        if let Some(base_url) = target.config.base_url.clone() {
+            transcriber = transcriber.with_base_url(base_url);
+        }
+
+        if let Err(err) = transcriber
+            .probe_audio_endpoint(Some(model_id.as_str()))
+            .await
+        {
+            failures.push(format!("{}: {}", target.config.label, err));
+            if should_try_next_transcription_provider(&err) {
+                continue;
+            }
+            return Err(err);
+        }
+
+        match transcriber
+            .transcribe(&audio_path, language.as_deref(), Some(model_id.as_str()))
+            .await
+        {
+            Ok(segments) => {
+                let language = segments.iter().find_map(|s| s.language.clone());
+                let entry = TranscriptEntry {
+                    backend: "openai-compatible-audio".into(),
+                    provider_id: Some(target.config.id.clone()),
+                    model: model_id,
+                    language,
+                    segments,
+                };
+                let arc = state.transcript_put(cache_key, entry);
+                return Ok(TranscribeOutput::from_entry(arc, false));
+            }
+            Err(err) => {
+                failures.push(format!("{}: {}", target.config.label, err));
+                if should_try_next_transcription_provider(&err) {
+                    continue;
+                }
+                return Err(err);
+            }
         }
     }
 
-    let store = KeyringSecretStore::new();
-    let api_key = store
-        .get(AiProviderType::OpenAi)
-        .map_err(|e| format!("keyring error: {e}"))?
-        .ok_or_else(|| "OpenAI API key not configured — add it in Settings".to_string())?;
-
-    let (audio_path, _audio_guard) = prepare_audio(&source).await?;
-
-    let transcriber = OpenAiWhisperTranscriber { api_key };
-    let segments = transcriber
-        .transcribe(&audio_path, language.as_deref(), model.as_deref())
-        .await?;
-
-    let language = segments.iter().find_map(|s| s.language.clone());
-    let entry = crate::state::TranscriptEntry { language, segments };
-    let arc = state.transcript_put(source, entry);
-    Ok(TranscribeOutput::from_entry(arc, false))
+    Err(format!(
+        "No working cloud transcription provider is available: {}",
+        failures.join(" | ")
+    ))
 }
 
-/// Return the cached transcript for a source path, or `None` if we have
-/// not transcribed it in this session.
 #[command]
 pub async fn get_cached_transcript(
     path: String,
+    backend: Option<String>,
+    provider_id: Option<String>,
+    model: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<Option<TranscribeOutput>, String> {
     let source = PathBuf::from(&path);
+    if backend.is_none() && provider_id.is_none() && model.is_none() {
+        return Ok(state
+            .transcript_get_any_for_path(&source)
+            .map(|arc| TranscribeOutput::from_entry(arc, true)));
+    }
+    let backend = backend.unwrap_or_else(|| "openai-compatible-audio".into());
+    let model = model.unwrap_or_else(|| "whisper-1".into());
+    let key = transcript_cache_key(&source, &backend, provider_id.as_deref(), &model);
     Ok(state
-        .transcript_get(&source)
+        .transcript_get(&key)
         .map(|arc| TranscribeOutput::from_entry(arc, true)))
 }
 
-/// Returns platform info so the frontend can hide unavailable backends.
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlatformInfo {
     pub is_apple_silicon: bool,
-    /// True only when both `mlx_whisper` and `mlx_lm.server` are on PATH
-    /// (or the standard Homebrew/pip locations). Frontend uses this to
-    /// disable the MLX dropdown option on machines that don't have the
-    /// Python runtime installed.
     pub mlx_runtime_available: bool,
 }
 
@@ -231,11 +314,6 @@ pub async fn check_platform() -> PlatformInfo {
     }
 }
 
-/// Look for `mlx_whisper` + `mlx_lm.server` in PATH plus the common pipx /
-/// Homebrew install dirs that macOS GUI apps cannot see (Finder-launched
-/// apps inherit a minimal PATH that excludes `~/.local/bin` etc.).
-/// Both binaries are required for MLX mode (whisper for transcribe, lm.server
-/// for LLM features). Returns true only when both exist.
 fn mlx_runtime_installed() -> bool {
     fn find(name: &str) -> bool {
         if std::process::Command::new("which")
@@ -257,8 +335,6 @@ fn mlx_runtime_installed() -> bool {
     find("mlx_whisper") && find("mlx_lm.server")
 }
 
-/// Check whether the default MLX Whisper model is already downloaded
-/// in the Hugging Face hub cache. Returns false on non-Apple-Silicon.
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 #[command]
 pub async fn mlx_model_ready() -> Result<bool, String> {
@@ -278,9 +354,6 @@ pub async fn mlx_model_ready() -> Result<bool, String> {
     Ok(false)
 }
 
-/// Drop cached PCM + transcript for a path (or everything when `path` is
-/// `None`). The frontend calls this when the user picks a new source or
-/// explicitly wants to rerun from scratch.
 #[command]
 pub async fn clear_cache(
     path: Option<String>,

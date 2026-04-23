@@ -12,6 +12,41 @@ pub use state::{AppState, TranscriptEntry};
 
 use commands::mlx_server::kill_server_pid;
 
+fn sidecar_is_usable(path: &std::path::Path, version_arg: &str) -> bool {
+    let metadata = match std::fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(_) => return false,
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    // Ignore empty placeholder files created only to satisfy build-time
+    // bundler checks; they are not runnable binaries.
+    if metadata.len() == 0 {
+        return false;
+    }
+    match std::process::Command::new(path)
+        .arg(version_arg)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+    {
+        Ok(status) => status.success(),
+        Err(err) => {
+            // Windows returns OS error 193 for invalid executables. This is
+            // common in local dev when placeholder sidecar files exist, so we
+            // suppress noisy WARN logs and quietly fall back to PATH.
+            if cfg!(windows) && err.raw_os_error() == Some(193) {
+                tracing::debug!("ignoring placeholder sidecar {}: {}", path.display(), err);
+            } else {
+                tracing::debug!("ignoring unusable sidecar {}: {}", path.display(), err);
+            }
+            false
+        }
+    }
+}
+
 /// Build the Tauri app and run it. Called from `main.rs` (desktop) and from
 /// mobile entry points (if/when added).
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -40,13 +75,13 @@ pub fn run() {
                     let ffmpeg = resolve("ffmpeg");
                     let ffprobe = resolve("ffprobe");
                     let ytdlp = resolve("yt-dlp");
-                    if ffmpeg.exists() {
+                    if sidecar_is_usable(&ffmpeg, "-version") {
                         std::env::set_var("FFMPEG", ffmpeg);
                     }
-                    if ffprobe.exists() {
+                    if sidecar_is_usable(&ffprobe, "-version") {
                         std::env::set_var("FFPROBE", ffprobe);
                     }
-                    if ytdlp.exists() {
+                    if sidecar_is_usable(&ytdlp, "--version") {
                         std::env::set_var("YT_DLP_BIN", ytdlp);
                     }
                 }
@@ -69,6 +104,9 @@ pub fn run() {
             commands::ai_set_api_key,
             commands::ai_delete_api_key,
             commands::ai_ping,
+            commands::ai_get_provider_settings,
+            commands::ai_save_provider_settings,
+            commands::ai_test_provider,
             commands::mlx_whisper_transcribe,
             commands::openai_whisper_transcribe,
             commands::import_srt,

@@ -26,13 +26,14 @@ export function initViralClipsView() {
 
     btn.disabled = true;
 
-    const { provider, model, language } = getAiConfig();
+    const { providerId, provider, model, language } = getAiConfig();
     setStatus(status, "scanning for viral moments…", "running");
     results.innerHTML = "";
 
     try {
       const out = await invoke("content_viral_clips", {
         request: {
+          providerId: providerId || null,
           provider,
           model,
           segments: source.transcript.segments,

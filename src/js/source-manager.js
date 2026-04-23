@@ -291,12 +291,12 @@ export function initSourceManager() {
   }
 
   function triggerAiCheck() {
-    const { mode } = getAiConfig();
+    const { mode, label } = getAiConfig();
     if (mode === "local") {
       startAiEngineCheck(aiStatusEl);
     } else {
       setAiReady(true);
-      updateAiStatus(aiStatusEl, "cloud (OpenAI)", "ok");
+      updateAiStatus(aiStatusEl, `cloud (${label || "provider"})`, "ok");
     }
   }
 

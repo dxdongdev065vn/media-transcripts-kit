@@ -1,0 +1,22 @@
+{
+  "ai": {
+    "retry": {
+      "maxAttemptsPerProvider": 3,
+      "retryBackoffMs": 1500
+    },
+    "providers": [
+      {
+        "id": "beeknoee",
+        "label": "Beeknoee",
+        "providerType": "openAi",
+        "baseUrl": "https://platform.beeknoee.com/api/v1/chat/completions",
+        "defaultModel": "gpt-4o-mini",
+        "enabled": true,
+        "priority": 0,
+        "capabilities": ["text"],
+        "apiKeyRef": "ai.provider.beeknoee.apiKey",
+        "apiKey": ""
+      }
+    ]
+  }
+}

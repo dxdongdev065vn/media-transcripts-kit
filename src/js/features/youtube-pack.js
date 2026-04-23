@@ -29,13 +29,14 @@ export function initYouTubePackView() {
     btn.disabled = true;
     lastPack = null;
 
-    const { provider, model, language } = getAiConfig();
+    const { providerId, provider, model, language } = getAiConfig();
     setStatus(status, "generating YT pack…", "running");
     results.innerHTML = "";
 
     try {
       const out = await invoke("content_youtube_pack", {
         request: {
+          providerId: providerId || null,
           provider,
           model,
           segments: source.transcript.segments,

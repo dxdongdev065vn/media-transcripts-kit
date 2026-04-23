@@ -77,7 +77,7 @@ export function initTranslateView() {
     btn.disabled = true;
     showProgress(0, 0);
 
-    const { provider, model, language } = getAiConfig();
+    const { providerId, provider, model, language } = getAiConfig();
     const target = language || "Vietnamese";
 
     setStatus(status, "translating…", "running");
@@ -88,6 +88,7 @@ export function initTranslateView() {
       const customInstruction = promptBox?.value.trim() || null;
       const out = await invoke("content_translate", {
         request: {
+          providerId: providerId || null,
           provider,
           model,
           segments: source.transcript.segments,

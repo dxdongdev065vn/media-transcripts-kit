@@ -11,7 +11,7 @@ use tauri::{command, State};
 
 use crate::commands::output::parse_srt;
 use crate::commands::transcription::TranscribeOutput;
-use crate::state::{AppState, TranscriptEntry};
+use crate::state::{AppState, TranscriptCacheKey, TranscriptEntry};
 
 #[command]
 pub async fn import_srt(
@@ -28,10 +28,14 @@ pub async fn import_srt(
         return Err("no segments found in SRT file".into());
     }
     let entry = TranscriptEntry {
+        backend: "import-srt".into(),
+        provider_id: None,
+        model: "srt".into(),
         language: None,
         segments,
     };
-    let arc = state.transcript_put(source, entry);
+    let cache_key = TranscriptCacheKey::new(source, "import-srt", None, "srt");
+    let arc = state.transcript_put(cache_key, entry);
     Ok(TranscribeOutput {
         language: arc.language.clone(),
         segments: arc.segments.clone(),

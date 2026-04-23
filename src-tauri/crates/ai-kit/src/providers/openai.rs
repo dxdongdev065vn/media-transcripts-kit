@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use creator_core::{AiProviderError, AiProviderType};
 
 use crate::request::{CompletionRequest, ResponseFormat};
-use crate::Provider;
+use crate::{Provider, ProviderCapability};
 
 pub const OPENAI_API_BASE: &str = "https://api.openai.com";
 pub const DEFAULT_MODEL: &str = "gpt-4o-mini";
@@ -33,6 +33,10 @@ impl OpenAiProvider {
     pub fn with_base_url(mut self, base: impl Into<String>) -> Self {
         self.base_url = base.into();
         self
+    }
+
+    fn normalized_base_url(&self) -> String {
+        normalize_openai_base_url(&self.base_url)
     }
 
     pub fn build_body(request: &CompletionRequest) -> Value {
@@ -92,15 +96,43 @@ impl Provider for OpenAiProvider {
         AiProviderType::OpenAi
     }
 
+    fn supports(&self, capability: ProviderCapability) -> bool {
+        matches!(
+            capability,
+            ProviderCapability::Text | ProviderCapability::Vision | ProviderCapability::Transcription
+        )
+    }
+
     async fn is_available(&self) -> bool {
         !self.api_key.is_empty()
+    }
+
+    async fn health_check(&self) -> Result<(), AiProviderError> {
+        if self.api_key.is_empty() {
+            return Err(AiProviderError::MissingApiKey(AiProviderType::OpenAi));
+        }
+        let url = format!("{}/models", self.normalized_base_url());
+        let resp = self
+            .client
+            .get(&url)
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| AiProviderError::Network(e.to_string()))?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            Err(AiProviderError::Rejected(format!("{status}: {text}")))
+        }
     }
 
     async fn complete(&self, request: CompletionRequest) -> Result<Value, AiProviderError> {
         if self.api_key.is_empty() {
             return Err(AiProviderError::MissingApiKey(AiProviderType::OpenAi));
         }
-        let url = format!("{}/v1/chat/completions", self.base_url);
+        let url = format!("{}/chat/completions", self.normalized_base_url());
         let body = Self::build_body(&request);
         let resp = self
             .client
@@ -122,6 +154,29 @@ impl Provider for OpenAiProvider {
             .map_err(|e| AiProviderError::Malformed(e.to_string()))?;
         Self::parse_response(&request, &json)
     }
+}
+
+fn normalize_openai_base_url(raw: &str) -> String {
+    let trimmed = raw.trim().trim_end_matches('/');
+    if trimmed.ends_with("/chat/completions") {
+        return trimmed
+            .trim_end_matches("/chat/completions")
+            .trim_end_matches('/')
+            .to_string();
+    }
+    if trimmed.ends_with("/models") {
+        return trimmed.trim_end_matches("/models").trim_end_matches('/').to_string();
+    }
+    if trimmed.ends_with("/completions") {
+        return trimmed
+            .trim_end_matches("/completions")
+            .trim_end_matches('/')
+            .to_string();
+    }
+    if trimmed.ends_with("/v1") {
+        return trimmed.to_string();
+    }
+    format!("{trimmed}/v1")
 }
 
 #[cfg(test)]
@@ -183,5 +238,21 @@ mod tests {
         });
         let out = OpenAiProvider::parse_response(&req, &body).unwrap();
         assert_eq!(out["text"], "hello");
+    }
+
+    #[test]
+    fn normalizes_full_chat_endpoint_to_v1_base() {
+        assert_eq!(
+            normalize_openai_base_url("https://platform.beeknoee.com/api/v1/chat/completions"),
+            "https://platform.beeknoee.com/api/v1"
+        );
+    }
+
+    #[test]
+    fn appends_v1_when_missing() {
+        assert_eq!(
+            normalize_openai_base_url("https://platform.beeknoee.com/api"),
+            "https://platform.beeknoee.com/api/v1"
+        );
     }
 }

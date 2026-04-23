@@ -1,16 +1,14 @@
 //! Shared app state for Tauri commands.
 //!
-//! Two caches keyed by the source file path:
+//! Two caches:
 //!
 //!   `pcm`        — Arc<Vec<f32>> of 16 kHz mono samples. Extracted once,
 //!                  reused by silence detection, transcription, and any
 //!                  future DSP features. Saves repeated ffmpeg invocations
 //!                  when the user tweaks sliders or reruns transcription.
 //!   `transcripts`— Arc<TranscriptEntry> with the whisper output for a
-//!                  clip. Populated by `transcribe_file`, read by all
-//!                  downstream content features (summary / chapters /
-//!                  filler / translate) so the UI doesn't have to pay the
-//!                  whisper cost twice.
+//!                  clip, keyed by source + backend/provider/model so
+//!                  switching providers does not silently reuse stale ASR.
 //!
 //! Both caches are `Arc`-shared so cloning is cheap; a command can hold
 //! the Arc while the cache itself is swapped by another command. Eviction
@@ -28,13 +26,42 @@ use creator_core::TranscriptionSegment;
 /// Snapshot of a whisper run for one clip. Stored in the transcript cache.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranscriptEntry {
+    pub backend: String,
+    pub provider_id: Option<String>,
+    pub model: String,
     pub language: Option<String>,
     pub segments: Vec<TranscriptionSegment>,
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct TranscriptCacheKey {
+    pub path: PathBuf,
+    pub backend: String,
+    pub provider_id: Option<String>,
+    pub model: String,
+}
+
+impl TranscriptCacheKey {
+    pub fn new(
+        path: PathBuf,
+        backend: impl Into<String>,
+        provider_id: Option<String>,
+        model: impl Into<String>,
+    ) -> Self {
+        Self {
+            path,
+            backend: backend.into(),
+            provider_id: provider_id
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty()),
+            model: model.into(),
+        }
+    }
+}
+
 pub struct AppState {
     pub pcm: Mutex<HashMap<PathBuf, Arc<Vec<f32>>>>,
-    pub transcripts: Mutex<HashMap<PathBuf, Arc<TranscriptEntry>>>,
+    pub transcripts: Mutex<HashMap<TranscriptCacheKey, Arc<TranscriptEntry>>>,
     /// PID of the mlx_lm.server process spawned by this app, if any.
     /// Killed when the app exits.
     pub mlx_server_pid: Mutex<Option<u32>>,
@@ -68,14 +95,23 @@ impl AppState {
         arc
     }
 
-    pub fn transcript_get(&self, path: &Path) -> Option<Arc<TranscriptEntry>> {
-        self.transcripts.lock().ok()?.get(path).cloned()
+    pub fn transcript_get(&self, key: &TranscriptCacheKey) -> Option<Arc<TranscriptEntry>> {
+        self.transcripts.lock().ok()?.get(key).cloned()
     }
 
-    pub fn transcript_put(&self, path: PathBuf, entry: TranscriptEntry) -> Arc<TranscriptEntry> {
+    pub fn transcript_get_any_for_path(&self, path: &Path) -> Option<Arc<TranscriptEntry>> {
+        self.transcripts
+            .lock()
+            .ok()?
+            .iter()
+            .find(|(key, _)| key.path == path)
+            .map(|(_, value)| value.clone())
+    }
+
+    pub fn transcript_put(&self, key: TranscriptCacheKey, entry: TranscriptEntry) -> Arc<TranscriptEntry> {
         let arc = Arc::new(entry);
         if let Ok(mut map) = self.transcripts.lock() {
-            map.insert(path, arc.clone());
+            map.insert(key, arc.clone());
         }
         arc
     }
@@ -85,7 +121,7 @@ impl AppState {
             map.remove(path);
         }
         if let Ok(mut map) = self.transcripts.lock() {
-            map.remove(path);
+            map.retain(|key, _| key.path != path);
         }
     }
 
@@ -118,11 +154,15 @@ mod tests {
         let s = AppState::new();
         let p = PathBuf::from("/tmp/video.mov");
         let entry = TranscriptEntry {
+            backend: "openai".into(),
+            provider_id: Some("openai".into()),
+            model: "whisper-1".into(),
             language: Some("en".into()),
             segments: vec![TranscriptionSegment::new(0, 1_000, "hello")],
         };
-        s.transcript_put(p.clone(), entry);
-        let got = s.transcript_get(&p).unwrap();
+        let key = TranscriptCacheKey::new(p.clone(), "openai", Some("openai".into()), "whisper-1");
+        s.transcript_put(key.clone(), entry);
+        let got = s.transcript_get(&key).unwrap();
         assert_eq!(got.segments.len(), 1);
         assert_eq!(got.language.as_deref(), Some("en"));
     }
@@ -132,15 +172,19 @@ mod tests {
         let s = AppState::new();
         let p = PathBuf::from("/tmp/x.mov");
         s.pcm_put(p.clone(), vec![0.0]);
+        let key = TranscriptCacheKey::new(p.clone(), "mlx", Some("mlx".into()), "mlx-community/whisper-large-v3-turbo");
         s.transcript_put(
-            p.clone(),
+            key,
             TranscriptEntry {
+                backend: "mlx".into(),
+                provider_id: Some("mlx".into()),
+                model: "mlx-community/whisper-large-v3-turbo".into(),
                 language: None,
                 segments: vec![],
             },
         );
         s.clear_for(&p);
         assert!(s.pcm_get(&p).is_none());
-        assert!(s.transcript_get(&p).is_none());
+        assert!(s.transcripts.lock().unwrap().is_empty());
     }
 }

@@ -31,13 +31,14 @@ export function initChaptersView() {
     btn.disabled = true;
     lastChapters = null;
 
-    const { provider, model, language } = getAiConfig();
+    const { providerId, provider, model, language } = getAiConfig();
     setStatus(status, "generating chapters…", "running");
     results.innerHTML = "";
 
     try {
       const out = await invoke("content_chapters", {
         request: {
+          providerId: providerId || null,
           provider,
           model,
           segments: source.transcript.segments,

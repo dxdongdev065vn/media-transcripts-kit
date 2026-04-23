@@ -152,7 +152,7 @@ async fn youtube_url_pipeline_e2e() {
     assert!(status.success(), "ffmpeg crop failed: {status}");
 
     let t_asr = Instant::now();
-    let transcriber = transcription_kit::OpenAiWhisperTranscriber { api_key };
+    let transcriber = transcription_kit::OpenAiWhisperTranscriber::new(api_key);
     let segments = transcriber
         .transcribe(&crop, None, None)
         .await

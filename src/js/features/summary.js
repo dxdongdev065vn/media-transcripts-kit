@@ -42,12 +42,13 @@ export function initSummaryView() {
     const customInstruction = promptBox.value.trim() || null;
     btn.disabled = true;
 
-    const { provider, model, language } = getAiConfig();
+    const { providerId, provider, model, language } = getAiConfig();
     setStatus(status, "re-summarizing…", "running");
 
     try {
       const out = await invoke("content_summary", {
         request: {
+          providerId: providerId || null,
           provider, model,
           segments: source.transcript.segments,
           language,

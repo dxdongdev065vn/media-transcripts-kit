@@ -17,6 +17,14 @@ const state = {
 const aiConfig = {
   mode: "cloud",
   language: "Vietnamese",
+  chatProviderId: "openai",
+  chatProvider: "openAi",
+  chatModel: "gpt-4o-mini",
+  chatLabel: "OpenAI",
+  transcriptionProviderId: "openai",
+  transcriptionProvider: "openAi",
+  transcriptionModel: "whisper-1",
+  transcriptionLabel: "OpenAI",
 };
 
 const AI_DEFAULTS = {
@@ -82,8 +90,39 @@ export function markOutputDone(key) {
 }
 
 export function getAiConfig() {
-  const { provider, model } = AI_DEFAULTS[aiConfig.mode] ?? AI_DEFAULTS.local;
+  if (aiConfig.mode === "cloud") {
+    return {
+      mode: aiConfig.mode,
+      providerId: aiConfig.chatProviderId,
+      provider: aiConfig.chatProvider,
+      model: aiConfig.chatModel,
+      label: aiConfig.chatLabel,
+      language: aiConfig.language,
+    };
+  }
+  const { provider, model } = AI_DEFAULTS.local;
   return { mode: aiConfig.mode, provider, model, language: aiConfig.language };
+}
+
+export function getTranscriptionAiConfig() {
+  if (aiConfig.mode === "cloud") {
+    return {
+      mode: aiConfig.mode,
+      providerId: aiConfig.transcriptionProviderId,
+      provider: aiConfig.transcriptionProvider,
+      model: aiConfig.transcriptionModel,
+      label: aiConfig.transcriptionLabel,
+      language: aiConfig.language,
+    };
+  }
+  return {
+    mode: aiConfig.mode,
+    providerId: "mlx",
+    provider: "mlx",
+    model: "mlx-community/whisper-large-v3-turbo",
+    label: "MLX",
+    language: aiConfig.language,
+  };
 }
 
 export function setAiReady(ready) {
@@ -99,6 +138,27 @@ export function setAiConfig(updates) {
     state.aiReady = updates.mode === "cloud" ? true : null;
     notify();
   }
+}
+
+export function setAiCloudDefaults({
+  chatProviderId,
+  chatProvider,
+  chatModel,
+  chatLabel,
+  transcriptionProviderId,
+  transcriptionProvider,
+  transcriptionModel,
+  transcriptionLabel,
+}) {
+  aiConfig.chatProviderId = chatProviderId || "";
+  aiConfig.chatProvider = chatProvider || "openAi";
+  aiConfig.chatModel = chatModel || "gpt-4o-mini";
+  aiConfig.chatLabel = chatLabel || "OpenAI";
+  aiConfig.transcriptionProviderId = transcriptionProviderId || "";
+  aiConfig.transcriptionProvider = transcriptionProvider || "openAi";
+  aiConfig.transcriptionModel = transcriptionModel || "whisper-1";
+  aiConfig.transcriptionLabel = transcriptionLabel || "";
+  notify();
 }
 
 export function subscribe(fn) {

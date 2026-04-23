@@ -7,11 +7,9 @@
     <link rel="stylesheet" href="styles/main.css" />
   </head>
   <body>
-    <!-- ═══════════ TOP: Source Manager (~40% height) ═══════════ -->
     <header id="source-manager">
-      <!-- Row 1: App title + input + AI config -->
       <div class="sm-toolbar">
-        <h1 class="app-title">My Media Kit <span id="app-version" class="app-version">…</span></h1>
+        <h1 class="app-title">My Media Kit <span id="app-version" class="app-version">...</span></h1>
         <div class="source-input-row">
           <input id="source-path" type="text" placeholder="drag a video, paste path, or YouTube URL" />
           <button id="btn-source-browse" class="ghost small">Browse</button>
@@ -19,20 +17,20 @@
         <div class="sm-config">
           <select id="ai-mode-global" title="AI engine">
             <option value="local">MLX (local)</option>
-            <option value="cloud" selected>Cloud (OpenAI)</option>
+            <option value="cloud" selected>Cloud</option>
           </select>
           <input id="ai-language-global" type="text" value="Vietnamese" placeholder="Language" title="Output language" />
-          <span id="ai-engine-status" class="ai-status running">checking…</span>
+          <span id="ai-engine-status" class="ai-status running">checking...</span>
+          <button id="btn-provider-settings" class="ghost small">Providers</button>
           <button id="btn-source-clear" class="ghost small">Clear</button>
         </div>
       </div>
 
-      <!-- Row 2: Source info panel -->
       <div class="sm-info" id="source-info-panel">
         <div class="sm-preview" id="source-preview">
           <div class="sm-no-source">
             <span class="sm-icon">🎬</span>
-            <p>Drop a video, audio, or .srt file here — or click Browse</p>
+            <p>Drop a video, audio, or .srt file here or click Browse</p>
           </div>
         </div>
         <div class="sm-details">
@@ -43,7 +41,6 @@
       </div>
     </header>
 
-    <!-- ═══════════ BOTTOM: Feature Workspace (~60% height) ═══════════ -->
     <div id="workspace">
       <nav id="feature-tabs" role="tablist">
         <button class="feature-item active" data-feature="transcribe" role="tab">Transcribe</button>
@@ -56,10 +53,9 @@
       </nav>
 
       <main id="detail" aria-live="polite">
-        <!-- ───────── Transcribe view ───────── -->
         <section class="feature-view active" data-view="transcribe">
           <h2>Transcribe</h2>
-          <p class="hint">Uses the AI engine selected above. Result cached — all other features reuse it.</p>
+          <p class="hint">Uses the transcription flow selected in Provider Settings. Result cached and reused by downstream tools.</p>
           <div class="actions">
             <button id="btn-transcribe" class="primary">Transcribe</button>
             <button id="btn-transcribe-refresh" class="ghost">Force re-run</button>
@@ -68,7 +64,7 @@
           </div>
           <div id="transcribe-progress" class="progress-box" hidden>
             <div class="progress-head">
-              <span id="transcribe-progress-label">running whisper…</span>
+              <span id="transcribe-progress-label">running whisper...</span>
               <span id="transcribe-progress-value">0%</span>
             </div>
             <div class="progress-track"><div id="transcribe-progress-bar" class="progress-bar"></div></div>
@@ -84,31 +80,28 @@
           </div>
         </section>
 
-        <!-- ───────── Translate view ───────── -->
         <section class="feature-view" data-view="translate">
           <h2>Translate</h2>
-          <p class="hint">Translates to the output language set above. If already matching, originals returned unchanged.</p>
+          <p class="hint">Translates to the output language set above. If already matching, originals are returned unchanged.</p>
           <div class="actions">
-            <textarea id="translate-custom-prompt" rows="2" placeholder="Custom style or context (e.g. 'keep technical terms in English', 'formal tone', 'preserve humor and idioms')…" style="width:100%;resize:vertical;margin-bottom:6px;"></textarea>
+            <textarea id="translate-custom-prompt" rows="2" placeholder="Custom style or context..." style="width:100%;resize:vertical;margin-bottom:6px;"></textarea>
             <button id="btn-translate" class="primary">Translate</button>
             <span id="translate-status" class="status">ready</span>
           </div>
           <div id="translate-results" class="results"></div>
         </section>
 
-        <!-- ───────── Summary view ───────── -->
         <section class="feature-view" data-view="summary">
           <h2>Summary</h2>
-          <p class="hint">Re-summarize with a different style or custom instructions. The default summary is generated automatically during Transcribe.</p>
+          <p class="hint">Re-summarize with different style or custom instructions. The default summary is generated automatically during Transcribe.</p>
           <div class="actions">
-            <textarea id="summary-custom-prompt" rows="2" placeholder="Custom instructions (e.g. 'focus on action items', 'extract key quotes', '5 bullet points')…" style="width:100%;resize:vertical;margin-bottom:6px;"></textarea>
+            <textarea id="summary-custom-prompt" rows="2" placeholder="Custom instructions..." style="width:100%;resize:vertical;margin-bottom:6px;"></textarea>
             <button id="btn-summary" class="primary" disabled>Re-summarize</button>
             <span id="summary-status" class="status">transcribe first</span>
           </div>
           <div id="summary-results" class="results"></div>
         </section>
 
-        <!-- ───────── Chapters view ───────── -->
         <section class="feature-view" data-view="chapters">
           <h2>Chapters</h2>
           <p class="hint">First chapter is always pinned to <code>00:00</code>.</p>
@@ -120,10 +113,9 @@
           <div id="chapters-results" class="results"></div>
         </section>
 
-        <!-- ───────── YouTube Pack view ───────── -->
         <section class="feature-view" data-view="youtube-pack">
           <h2>YouTube Content Pack</h2>
-          <p class="hint">Titles, description, and SEO tags — one shot.</p>
+          <p class="hint">Titles, description, and SEO tags in one shot.</p>
           <div class="actions">
             <button id="btn-ytpack" class="primary">Generate pack</button>
             <button id="btn-ytpack-copy" class="ghost">Copy all</button>
@@ -132,10 +124,9 @@
           <div id="ytpack-results" class="results"></div>
         </section>
 
-        <!-- ───────── Viral Clips view ───────── -->
         <section class="feature-view" data-view="viral-clips">
           <h2>Viral Clips</h2>
-          <p class="hint">Best 15-60s moments for Shorts, TikTok, Reels.</p>
+          <p class="hint">Best 15-60s moments for Shorts, TikTok, and Reels.</p>
           <div class="actions">
             <button id="btn-viral" class="primary">Find viral clips</button>
             <span id="viral-status" class="status">ready</span>
@@ -143,22 +134,17 @@
           <div id="viral-results" class="results"></div>
         </section>
 
-        <!-- ───────── Settings view ───────── -->
         <section class="feature-view" data-view="settings">
           <h2>Settings</h2>
 
-          <h3>OpenAI API Key</h3>
-          <p class="hint">Used for Cloud transcription (Whisper) and Cloud AI (GPT-4o mini). Stored in OS keyring.</p>
-          <div id="openai-key-status" class="provider-card" style="margin-bottom:12px">Checking…</div>
-          <div class="field-row">
-            <label for="ai-key">API key</label>
-            <input id="ai-key" type="password" placeholder="sk-…" />
-          </div>
+          <h3>AI Providers</h3>
+          <p class="hint">Manage paid AI providers, fallback order, base URLs, default models, and API keys stored in your OS keyring.</p>
           <div class="actions">
-            <button id="btn-save-key" class="primary">Save key</button>
-            <button id="btn-delete-key" class="ghost">Delete key</button>
+            <button id="btn-open-provider-settings-tab" class="primary">Open provider settings</button>
             <span id="ai-status" class="status"></span>
           </div>
+          <div id="provider-default-summary" class="hint" style="margin-bottom:8px"></div>
+          <div id="provider-settings-summary" class="provider-summary-list"></div>
 
           <h3>Updates</h3>
           <div class="update-section">
@@ -172,7 +158,7 @@
               <button id="btn-do-update" class="primary">Download &amp; Install</button>
               <div id="update-progress" class="progress-box" hidden>
                 <div class="progress-head">
-                  <span>Downloading…</span>
+                  <span>Downloading...</span>
                   <span id="update-progress-pct">0%</span>
                 </div>
                 <div class="progress-track"><div id="update-progress-bar" class="progress-bar"></div></div>
@@ -182,6 +168,34 @@
         </section>
       </main>
     </div>
+
+    <dialog id="provider-settings-modal" class="provider-modal">
+      <form method="dialog" class="provider-modal-shell">
+        <div class="provider-modal-head">
+          <div>
+            <h3>Provider Settings</h3>
+            <p class="hint">Configure fallback order, API keys, and default models for all AI tools.</p>
+          </div>
+          <button id="btn-provider-close" class="ghost small" value="cancel">Close</button>
+        </div>
+        <div class="provider-modal-toolbar">
+          <button id="btn-provider-add" type="button" class="ghost small">Add provider</button>
+          <button id="btn-provider-save" type="button" class="primary">Save changes</button>
+        </div>
+        <div class="provider-flow-grid">
+          <label>
+            <span>Chat Completions flow</span>
+            <select id="provider-default-text"></select>
+          </label>
+          <label>
+            <span>Transcription flow</span>
+            <select id="provider-default-transcription"></select>
+          </label>
+        </div>
+        <div id="provider-settings-feedback" class="status"></div>
+        <div id="provider-settings-list" class="provider-editor-list"></div>
+      </form>
+    </dialog>
 
     <script src="js/main.js" type="module"></script>
   </body>

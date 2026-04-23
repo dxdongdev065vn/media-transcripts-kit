@@ -52,7 +52,7 @@ impl KeyringSecretStore {
         Self
     }
 
-    fn account_for(provider: AiProviderType) -> &'static str {
+    pub fn account_for(provider: AiProviderType) -> &'static str {
         match provider {
             AiProviderType::Claude => "ai.provider.claude.apiKey",
             AiProviderType::OpenAi => "ai.provider.openai.apiKey",
@@ -63,12 +63,14 @@ impl KeyringSecretStore {
             AiProviderType::AppleIntelligence => "ai.provider.appleIntelligence.token",
         }
     }
-}
 
-impl SecretStore for KeyringSecretStore {
-    fn get(&self, provider: AiProviderType) -> Result<Option<String>, AiProviderError> {
-        let entry = keyring::Entry::new(KEYRING_SERVICE, Self::account_for(provider))
-            .map_err(|e| AiProviderError::Rejected(format!("keyring open: {e}")))?;
+    fn entry_for(account: &str) -> Result<keyring::Entry, AiProviderError> {
+        keyring::Entry::new(KEYRING_SERVICE, account)
+            .map_err(|e| AiProviderError::Rejected(format!("keyring open: {e}")))
+    }
+
+    pub fn get_by_ref(&self, account: &str) -> Result<Option<String>, AiProviderError> {
+        let entry = Self::entry_for(account)?;
         match entry.get_password() {
             Ok(v) => Ok(Some(v)),
             Err(keyring::Error::NoEntry) => Ok(None),
@@ -76,21 +78,33 @@ impl SecretStore for KeyringSecretStore {
         }
     }
 
-    fn set(&self, provider: AiProviderType, value: &str) -> Result<(), AiProviderError> {
-        let entry = keyring::Entry::new(KEYRING_SERVICE, Self::account_for(provider))
-            .map_err(|e| AiProviderError::Rejected(format!("keyring open: {e}")))?;
+    pub fn set_by_ref(&self, account: &str, value: &str) -> Result<(), AiProviderError> {
+        let entry = Self::entry_for(account)?;
         entry
             .set_password(value)
             .map_err(|e| AiProviderError::Rejected(format!("keyring write: {e}")))
     }
 
-    fn delete(&self, provider: AiProviderType) -> Result<(), AiProviderError> {
-        let entry = keyring::Entry::new(KEYRING_SERVICE, Self::account_for(provider))
-            .map_err(|e| AiProviderError::Rejected(format!("keyring open: {e}")))?;
+    pub fn delete_by_ref(&self, account: &str) -> Result<(), AiProviderError> {
+        let entry = Self::entry_for(account)?;
         match entry.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
             Err(e) => Err(AiProviderError::Rejected(format!("keyring delete: {e}"))),
         }
+    }
+}
+
+impl SecretStore for KeyringSecretStore {
+    fn get(&self, provider: AiProviderType) -> Result<Option<String>, AiProviderError> {
+        self.get_by_ref(Self::account_for(provider))
+    }
+
+    fn set(&self, provider: AiProviderType, value: &str) -> Result<(), AiProviderError> {
+        self.set_by_ref(Self::account_for(provider), value)
+    }
+
+    fn delete(&self, provider: AiProviderType) -> Result<(), AiProviderError> {
+        self.delete_by_ref(Self::account_for(provider))
     }
 }
 

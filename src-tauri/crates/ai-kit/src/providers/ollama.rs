@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use creator_core::{AiProviderError, AiProviderType};
 
 use crate::request::{CompletionRequest, ResponseFormat};
-use crate::Provider;
+use crate::{Provider, ProviderCapability};
 
 pub const DEFAULT_HOST: &str = "http://127.0.0.1:11434";
 pub const DEFAULT_MODEL: &str = "llama3.2";
@@ -73,12 +73,33 @@ impl Provider for OllamaProvider {
         AiProviderType::Ollama
     }
 
+    fn supports(&self, capability: ProviderCapability) -> bool {
+        matches!(capability, ProviderCapability::Text | ProviderCapability::Vision)
+    }
+
     async fn is_available(&self) -> bool {
         // Ping the /api/tags endpoint — returns 200 when daemon is up.
         let url = format!("{}/api/tags", self.host);
         match self.client.get(&url).send().await {
             Ok(r) => r.status().is_success(),
             Err(_) => false,
+        }
+    }
+
+    async fn health_check(&self) -> Result<(), AiProviderError> {
+        let url = format!("{}/api/tags", self.host);
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| AiProviderError::Network(e.to_string()))?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            Err(AiProviderError::Rejected(format!("{status}: {text}")))
         }
     }
 

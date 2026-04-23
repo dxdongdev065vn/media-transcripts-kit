@@ -4,7 +4,15 @@
 // Models are fixed: mlx → whisper-large-v3-turbo, cloud → whisper-1.
 // No per-feature config — everything comes from the source manager.
 
-import { getSource, getAiConfig, setTranscript, setSummary, subscribe, markOutputDone } from "../source-store.js";
+import {
+  getSource,
+  getAiConfig,
+  getTranscriptionAiConfig,
+  setTranscript,
+  setSummary,
+  subscribe,
+  markOutputDone,
+} from "../source-store.js";
 import {
   deriveOutputPath,
   escapeHtml,
@@ -42,6 +50,33 @@ export function initTranscribeView() {
 
   let currentTranscript = null;
   let running = false;
+  let transcriptionGate = {
+    loading: true,
+    ready: false,
+    message: "checking transcription provider…",
+  };
+
+  async function refreshTranscriptionGate(viewOverride = null) {
+    try {
+      const view = viewOverride || await invoke("ai_get_provider_settings");
+      const hasCloudProvider = view.providers.some((provider) =>
+        provider.enabled && provider.hasApiKey && provider.capabilities.includes("transcription"),
+      );
+      transcriptionGate = {
+        loading: false,
+        ready: hasCloudProvider,
+        message: hasCloudProvider
+          ? ""
+          : "No cloud transcription provider is configured. Open Provider Settings and choose an Audio Transcription provider.",
+      };
+    } catch (err) {
+      transcriptionGate = {
+        loading: false,
+        ready: false,
+        message: `Cannot load transcription settings: ${String(err)}`,
+      };
+    }
+  }
 
   function renderSummaryInline(summary) {
     if (!summary?.text) {
@@ -57,7 +92,7 @@ export function initTranscribeView() {
   }
 
   function getBackend() {
-    const { mode } = getAiConfig();
+    const { mode } = getTranscriptionAiConfig();
     return mode === "cloud" ? "openai" : "mlx";
   }
 
@@ -89,14 +124,20 @@ export function initTranscribeView() {
   // Status updates flow into the Transcribe status bar; result renders in
   // the inline Summary section below the transcript table.
   async function runAutoSummary(segments, source) {
-    const { provider, model, language } = getAiConfig();
+    const { providerId, provider, model, language } = getAiConfig();
     summaryBox.hidden = false;
     summaryBody.innerHTML = `<p class="hint">generating summary…</p>`;
     setStatus(status, "summarizing…", "running");
     try {
       setStatus(status, "summarizing…", "running");
       const out = await invoke("content_summary", {
-        request: { provider, model, segments, language: language || "English" },
+        request: {
+          providerId: providerId || null,
+          provider,
+          model,
+          segments,
+          language: language || "English",
+        },
       });
       const summary = { ...out };
       setSummary(summary);
@@ -136,11 +177,23 @@ export function initTranscribeView() {
     btnSaveClean.disabled = true;
 
     const backend = getBackend();
-    const model = BACKEND_MODEL[backend];
+    const transcriptionConfig = getTranscriptionAiConfig();
+    const model = transcriptionConfig.model || BACKEND_MODEL[backend];
+    if (backend === "openai") {
+      if (transcriptionGate.loading) {
+        await refreshTranscriptionGate();
+      }
+      if (!transcriptionGate.ready) {
+        renderErrorBox(results, transcriptionGate.message);
+        setStatus(status, "configure transcription provider", "err");
+        return;
+      }
+    }
 
     let label;
     if (backend === "openai") {
-      label = force ? "re-running OpenAI Whisper…" : "running OpenAI Whisper…";
+      const providerLabel = transcriptionConfig.label || "cloud transcription";
+      label = force ? `re-running ${providerLabel}…` : `running ${providerLabel}…`;
     } else {
       const ready = await invoke("mlx_model_ready").catch(() => true);
       label = ready
@@ -154,7 +207,11 @@ export function initTranscribeView() {
       let out;
       if (backend === "openai") {
         out = await invoke("openai_whisper_transcribe", {
-          path: source.path, language: null, model, force: !!force,
+          path: source.path,
+          providerId: transcriptionConfig.providerId || null,
+          language: null,
+          model,
+          force: !!force,
         });
       } else {
         out = await invoke("mlx_whisper_transcribe", {
@@ -210,6 +267,10 @@ export function initTranscribeView() {
 
   subscribe(async (state) => {
     if (running) return;
+    const backend = getBackend();
+    const backendReady = backend === "mlx" || transcriptionGate.ready;
+    btnRun.disabled = !state.path || !backendReady;
+    btnForce.disabled = !state.path || !backendReady;
     // Always reflect summary state inline (even after re-opening the app).
     renderSummaryInline(state.summary);
     if (!state.path) {
@@ -221,6 +282,9 @@ export function initTranscribeView() {
     }
     if (state.transcript) {
       applyTranscript({ ...state.transcript, fromCache: true });
+      if (backend === "openai" && !transcriptionGate.ready) {
+        setStatus(status, "configure transcription provider", "err");
+      }
       // Auto-load cached summary.md from disk if no summary in store yet.
       if (!state.summary && state.outputStatus?.summary) {
         try {
@@ -231,18 +295,39 @@ export function initTranscribeView() {
       return;
     }
     try {
-      const hit = await invoke("get_cached_transcript", { path: state.path });
+      const transcriptionConfig = getTranscriptionAiConfig();
+      const hit = await invoke("get_cached_transcript", {
+        path: state.path,
+        backend: backend === "openai" ? "openai-compatible-audio" : "mlx",
+        providerId: transcriptionConfig.providerId || null,
+        model: transcriptionConfig.model || BACKEND_MODEL[backend],
+      });
       if (hit) {
         applyTranscript(hit);
         setStatus(status, `${hit.segments.length} segments (cached)`, "ok");
       } else {
-        results.innerHTML = `<p class="hint">not transcribed yet — hit Transcribe above</p>`;
+        if (getBackend() === "openai" && !transcriptionGate.loading && !transcriptionGate.ready) {
+          results.innerHTML = `<p class="hint">${escapeHtml(transcriptionGate.message)}</p>`;
+          setStatus(status, "configure transcription provider", "err");
+        } else {
+          results.innerHTML = `<p class="hint">not transcribed yet — hit Transcribe above</p>`;
+        }
         currentTranscript = null;
         btnSaveClean.disabled = true;
       }
     } catch (e) {
       renderErrorBox(results, String(e));
     }
+  });
+
+  window.addEventListener("provider-settings-changed", (event) => {
+    refreshTranscriptionGate(event.detail || null).catch((err) => {
+      console.error("transcription provider refresh failed:", err);
+    });
+  });
+
+  refreshTranscriptionGate().catch((err) => {
+    console.error("initial transcription provider check failed:", err);
   });
 }
 

@@ -136,7 +136,7 @@ async fn openai_all_use_cases() {
     println!("║  Whisper: {WHISPER_MODEL}  ·  LLM: {LLM_MODEL}");
     println!("╚══════════════════════════════════════════════════════════════════════");
 
-    let t = OpenAiWhisperTranscriber { api_key: api_key.clone() };
+    let t = OpenAiWhisperTranscriber::new(api_key.clone());
     let provider = std::sync::Arc::new(OpenAiProvider::new(api_key));
     let sum_r = ProviderSummaryRunner { provider: provider.as_ref() };
     let ch_r  = ProviderChapterRunner { provider: provider.as_ref() };
